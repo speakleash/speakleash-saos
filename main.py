@@ -52,17 +52,38 @@ counter = 0
 
 h = html2text.HTML2Text()
 h.ignore_links = True
+error = 0
+http_code = 0
+http_text = ""
 
 while next_link:
+    
     print("Processing: ", next_link)
-    r = requests.get(next_link)
-    data = r.json()
-    links = data.get("links")
-    next_link = ""
 
-    for link in links:
-        if link.get("rel") == "next":
-            next_link = link.get("href")
+    try:
+
+        r = requests.get(next_link)
+        http_code = r.status_code
+        http_text = r.text
+
+        data = r.json()
+        links = data.get("links")
+        next_link = ""
+
+        for link in links:
+            if link.get("rel") == "next":
+                next_link = link.get("href")
+
+
+    except Exception as e:
+        print("Error: ", e)
+        print("HTTP code: ", http_code)
+        print("HTTP text: ", http_text)
+        error += 1
+        if error > 10:
+            print("Too many errors. Exiting.")
+            break
+        continue
 
     items = data.get("items")
     for item in items:
@@ -85,6 +106,10 @@ while next_link:
         total_symbols += symbols
         meta = {'id' : item.get("id"), 'length': l, 'sentences': sentences, 'words': words, 'verbs': verbs, 'nouns': nouns, 'punctuations': punctuations, 'symbols': symbols}
         ar.add_data(txt.strip(), meta = meta)
+    
+    error = 0
+    print("Avg len: ", total_len / total_docs)
+    print("Total len in MB: ", total_len / 1024 / 1024)
 
 ar.commit()
 data_files= glob.glob('./data/*')
